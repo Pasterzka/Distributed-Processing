@@ -24,6 +24,21 @@ def processFollower(id, queueLeader, queueResponse, eventStop):
     numberMaxFound = 0
 
     while not eventStop.is_set():
+        try:
+            if not queueResponse.empty():
+                msg = queueResponse.get(timeout=0.5)
+                if msg[0] == "voteRequest":
+                    primeProposed = msg[1]
+                    if primeProposed > numberMaxFound:
+                        print(f"[Follower {id}] Voting YES for {primeProposed}")
+                        queueResponse.put("yes")
+                    else:
+                        print(f"[Follower {id}] Voting NO for {primeProposed} (my max: {numberMaxFound})")
+                        queueResponse.put("no")
+        except:
+            pass
+
+        
         if not queueResponse.empty():
             msg = queueResponse.get()
             if msg[0] == "voteRequest":
@@ -34,11 +49,14 @@ def processFollower(id, queueLeader, queueResponse, eventStop):
         if isPrime_Basic(numberCurrent):
             if numberMaxFound < numberCurrent:
                 numberMaxFound = numberCurrent
-                queueLeader.put(("proposal", id, numberCurrent))
                 print(f"[Follower {id}] Found new prime: {numberCurrent}")
-                time.sleep(0.5)
+                try:
+                    queueLeader.put(("proposal", id, numberCurrent))
+                except:
+                    print(f"[Follower {id}] Failed to send proposal to leader")
 
         numberCurrent += random.randint(1, 10)
+        time.sleep(0.1)
 
 eventStop = multiprocessing.Event()
 
