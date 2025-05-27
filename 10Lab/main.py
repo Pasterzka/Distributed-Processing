@@ -3,6 +3,7 @@ import time
 import random
 import signal
 import sys
+import leader
 
 def isPrime_Basic(n):
     if n <= 1:
@@ -17,41 +18,6 @@ def isPrime_Basic(n):
             return False
         i += 6
     return True
-
-
-def processLeader(queueLeader, queueResponse, eventStop, processNumber=3):
-    primeMax = 0
-
-    while not eventStop.is_set():
-        try:
-            msg = queueLeader.get(timeout=1)
-        except:
-            continue
-        
-        if msg[0] == "proposal":
-            _, idFrom, primeProposed = msg
-
-            if primeProposed > primeMax:
-                print(f"[Leader] Received proposal {primeProposed} from Follower {idFrom}")
-
-                votes = 1
-                for q in queueResponse:
-                    q.put(("voteRequest", primeProposed))
-
-                for q in queueResponse:
-                    try:
-                        response = q.get(timeout=1)
-                        if response == "yes":
-                            votes += 1
-                    except:
-                        continue
-
-                if votes > (processNumber // 2):
-                    primeMax = primeProposed
-                    print(f"[Leader] Prime {primeProposed} accepted by majority. Writing to file.")
-                    with open("10Lab/primes.txt", "a") as f:
-                        f.write(f"{primeProposed} - by Follower {idFrom}\n")
-
 
 def processFollower(id, queueLeader, queueResponse, eventStop):
     numberCurrent = 0
@@ -94,7 +60,7 @@ if __name__ == "__main__":
 
     # Leader
     leader = multiprocessing.Process(
-        target=processLeader,
+        target=leader.processLeader,
         args=(queueLeader, [queueResponse1, queueResponse2], eventStop)
     )
 
