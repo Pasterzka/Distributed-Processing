@@ -8,31 +8,39 @@ def processLeader(queueLeader, queueResponse, eventStop, processNumber=3):
     while not eventStop.is_set():
         try:
             msg = queueLeader.get(timeout=1)
+            if msg[0] == "proposal":
+                _, idFrom, primeProposed = msg
+
+                if primeProposed > primeMax:
+                    print(f"[Leader] Received proposal {primeProposed} from Follower {idFrom}")
+                    votes = 1
+
+                    for q in queueResponse:
+                        try:
+                            q.put(("voteRequest", primeProposed), timeout=1)
+                        except:
+                            continue 
+
+                    for q in queueResponse:
+                        try:
+                            response = q.get(timeout=1)
+                            if response == "yes":
+                                votes += 1
+                        except:
+                            continue 
+
+                    print(f"[Leader] Vote result: {votes}/{processNumber//2 + 1}")
+                    if votes > (processNumber // 2):
+                        primeMax = primeProposed
+                        print(f"[Leader] Prime {primeProposed} accepted by majority")
+                        try:
+                            with open("10Lab/primes.txt", "a") as f:
+                                f.write(f"{primeProposed} - by Follower {idFrom}\n")
+                                f.flush()
+                        except Exception as e:
+                            print(f"[Leader] Error writing to file: {e}")
+
         except:
             continue
         
-        if msg[0] == "proposal":
-            _, idFrom, primeProposed = msg
-
-            if primeProposed > primeMax:
-                print(f"[Leader] Received proposal {primeProposed} from Follower {idFrom}")
-
-                votes = 1
-                for q in queueResponse:
-                    q.put(("voteRequest", primeProposed))
-
-                for q in queueResponse:
-                    try:
-                        response = q.get(timeout=1)
-                        if response == "yes":
-                            votes += 1
-                    except:
-                        continue
-
-                if votes > (processNumber // 2):
-                    primeMax = primeProposed
-                    print(f"[Leader] Prime {primeProposed} accepted by majority. Writing to file.")
-                    with open("10Lab/primes.txt", "a") as f:
-                        f.write(f"{primeProposed} - by Follower {idFrom}\n")
-
-        time.sleep(0.1) 
+        time.sleep(0.1)

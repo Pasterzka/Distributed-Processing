@@ -22,29 +22,23 @@ def isPrime_Basic(n):
 def processFollower(id, queueLeader, queueResponse, eventStop):
     numberCurrent = 0
     numberMaxFound = 0
+    print(f"[Follower {id}] Starting with current number: {numberCurrent}")
+
 
     while not eventStop.is_set():
         try:
-            if not queueResponse.empty():
-                msg = queueResponse.get(timeout=0.5)
-                if msg[0] == "voteRequest":
-                    primeProposed = msg[1]
-                    if primeProposed > numberMaxFound:
-                        print(f"[Follower {id}] Voting YES for {primeProposed}")
-                        queueResponse.put("yes")
-                    else:
-                        print(f"[Follower {id}] Voting NO for {primeProposed} (my max: {numberMaxFound})")
-                        queueResponse.put("no")
-        except:
-            pass
-
-        
-        if not queueResponse.empty():
-            msg = queueResponse.get()
+            msg = queueResponse.get(timeout=0.5)
             if msg[0] == "voteRequest":
                 primeProposed = msg[1]
-                print(f"[Follower {id}] Voting YES for {primeProposed}")
-                queueResponse.put("yes")
+                if primeProposed > numberMaxFound:
+                    print(f"[Follower {id}] Voting YES for {primeProposed}")
+                    queueResponse.put("yes")
+                    numberMaxFound = primeProposed
+                else:
+                    print(f"[Follower {id}] Voting NO for {primeProposed} (my max: {numberMaxFound})")
+                    queueResponse.put("no")
+        except:
+            pass
 
         if isPrime_Basic(numberCurrent):
             if numberMaxFound < numberCurrent:
