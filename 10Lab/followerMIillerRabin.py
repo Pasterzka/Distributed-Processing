@@ -2,24 +2,37 @@ import random
 import time
 
 
-def isPrime(n):
+def isPrime(n, k=5):
     if n <= 1:
         return False
-    if n <= 3:
+    if n in (2, 3):
         return True
-    if n % 2 == 0 or n % 3 == 0:
+    if n % 2 == 0:
         return False
-    i = 5
-    while i * i <= n:
-        if n % i == 0 or n % (i + 2) == 0:
+
+    # n-1 = 2^r * d
+    r, d = 0, n - 1
+    while d % 2 == 0:
+        r += 1
+        d //= 2
+
+    for _ in range(k):
+        a = random.randint(2, n - 2)
+        x = pow(a, d, n)
+        if x in (1, n - 1):
+            continue
+        for _ in range(r - 1):
+            x = pow(x, 2, n)
+            if x == n - 1:
+                break
+        else:
             return False
-        i += 6
     return True
 
 def processFollower(id, queueLeader, queueFromLeader, queueToLeader, eventStop):
     numberCurrent = 0
     numberMaxFound = 0
-    print(f"[Follower {id} - basic method] Starting with current number: {numberCurrent}")
+    print(f"[Follower {id} - Miller Rabin method] Starting with current number: {numberCurrent}")
 
 
     while not eventStop.is_set():

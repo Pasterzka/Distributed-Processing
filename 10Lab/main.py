@@ -4,53 +4,9 @@ import random
 import signal
 import sys
 import leader
+import followerBasic
+import followerMIillerRabin
 
-def isPrime_Basic(n):
-    if n <= 1:
-        return False
-    if n <= 3:
-        return True
-    if n % 2 == 0 or n % 3 == 0:
-        return False
-    i = 5
-    while i * i <= n:
-        if n % i == 0 or n % (i + 2) == 0:
-            return False
-        i += 6
-    return True
-
-def processFollower(id, queueLeader, queueResponse, eventStop):
-    numberCurrent = 0
-    numberMaxFound = 0
-    print(f"[Follower {id}] Starting with current number: {numberCurrent}")
-
-
-    while not eventStop.is_set():
-        try:
-            msg = queueResponse.get(timeout=0.5)
-            if msg[0] == "voteRequest":
-                primeProposed = msg[1]
-                if primeProposed > numberMaxFound:
-                    print(f"[Follower {id}] Voting YES for {primeProposed}")
-                    queueResponse.put("yes")
-                    numberMaxFound = primeProposed
-                else:
-                    print(f"[Follower {id}] Voting NO for {primeProposed} (my max: {numberMaxFound})")
-                    queueResponse.put("no")
-        except:
-            pass
-
-        if isPrime_Basic(numberCurrent):
-            if numberMaxFound < numberCurrent:
-                numberMaxFound = numberCurrent
-                print(f"[Follower {id}] Found new prime: {numberCurrent}")
-                try:
-                    queueLeader.put(("proposal", id, numberCurrent))
-                except:
-                    print(f"[Follower {id}] Failed to send proposal to leader")
-
-        numberCurrent += random.randint(1, 10)
-        time.sleep(0.1)
 
 eventStop = multiprocessing.Event()
 
@@ -66,30 +22,36 @@ if __name__ == "__main__":
     queueLeader = manager.Queue()
     
 
-    # Odpowiedzi Followerów do Leadera
-    queueResponse1 = manager.Queue()
-    queueResponse2 = manager.Queue()
+    queueToFollower1 = manager.Queue()  # Leader -> Follower 1
+    queueFromFollower1 = manager.Queue()  # Follower 1 -> Leader
+
+    queueToFollower2 = manager.Queue()  # Leader -> Follower 2
+    queueFromFollower2 = manager.Queue()  # Follower 2 -> Leader
 
     # Leader
-    leader = multiprocessing.Process(
+    leaderProcess = multiprocessing.Process(
         target=leader.processLeader,
-        args=(queueLeader, [queueResponse1, queueResponse2], eventStop)
+        args=(queueLeader,
+              [queueToFollower1, queueToFollower2],
+              [queueFromFollower1, queueFromFollower2],
+              eventStop,
+              3)
     )
 
     follower1 = multiprocessing.Process(
-        target=processFollower,
-        args=(1, queueLeader, queueResponse1, eventStop)
+        target=followerBasic.processFollower,
+        args=(1, queueLeader, queueToFollower1, queueFromFollower1, eventStop)
     )
 
     follower2 = multiprocessing.Process(
-        target=processFollower,
-        args=(2, queueLeader, queueResponse2, eventStop)
+        target=followerMIillerRabin.processFollower,
+        args=(2, queueLeader, queueToFollower2, queueFromFollower2, eventStop)
     )
 
-    leader.start()
+    leaderProcess.start()
     follower1.start()
     follower2.start()
 
-    leader.join()
+    leaderProcess.join()
     follower1.join()
     follower2.join()
